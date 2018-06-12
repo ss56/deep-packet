@@ -8,6 +8,7 @@ import math
 import sys
 import os,errno
 import numpy as np
+#import extractor_refined
 import re
 import MySQLdb
 import base64
@@ -209,7 +210,8 @@ def parse(st):
 				final = '[ ' + assigned[final] + ' ]'
 				line = []
 			except KeyError as e:
-				print str(e) + st + "im here again"
+				pass
+				#print str(e) + st + "im here again"
 		else:
 			final = '[ ' + line[0] + ' ]'	
 			line = []
