@@ -27,11 +27,10 @@ def match(opcodes,bytes):
 	if all_c ==[]:
 		all_c = c
 	result = `all_c` + '\n' + `opcode` +"\n" + `byte` + '\n'
-	
-			
 	return 	result
 def findOpcodes(string):
-	result = ''	
+	result = ''
+	done = []	
 	string = string[24:]	
 	db = MySQLdb.connect(host="localhost", user="root", passwd="12345", db="modicon")
 	cur = db.cursor()
@@ -50,8 +49,11 @@ def findOpcodes(string):
 				if bytes[i] == opcode[0]:
 					lhs.append(opcode)
 					rhs.append(bytes[i:i+len(opcode)])
-					length = len(opcode)
-					result = result + match(lhs,rhs)
+					current_result = match(lhs,rhs)
+					if not current_result in done:
+						result = result + current_result
+					done.append(current_result)
+					
 	except IndexError:
 		pass	
 	string = ''		

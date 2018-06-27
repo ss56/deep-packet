@@ -25,7 +25,14 @@ db = MySQLdb.connect(host="localhost",  # host
                      db="modicon")   	# name of the database
 
 cur = db.cursor()
-
+cur.execute("select op_code,instruction,output from instructions")
+rows = cur.fetchall()
+cur.execute("select op_code,delimiter,category from delimiters")
+delimiters = cur.fetchall()
+cur.execute("select operation from operations")
+operations = cur.fetchall()
+cur.execute("select op_code,instruction,output from instructions where output=\'0\'")
+inputs = cur.fetchall()
 
 # Replace function for repeated occurances
 def rreplace(s, old, new, occurrence):
@@ -117,14 +124,7 @@ def map(ll):
 	#ll = extractor_refined.ladder_logic
 	ll = ll[24:].lower().replace(":","")
 
-	cur.execute("select op_code,instruction,output from instructions")
-	rows = cur.fetchall()
-	cur.execute("select op_code,delimiter,category from delimiters")
-	delimiters = cur.fetchall()
-	cur.execute("select operation from operations")
-	operations = cur.fetchall()
-	cur.execute("select op_code,instruction,output from instructions where output=\'0\'")
-	inputs = cur.fetchall()
+	
 	rungs,start_l = llToRungs(ll,rows,delimiters,inputs)
 	# Decompiling one rung at a item
 	for rung in rungs:
@@ -179,3 +179,64 @@ def map(ll):
 
 # To Test this function
 #print map("aaaaaaaaaaaaaaaaaaaaaaa:7C:0C:03:23:0D:7F:1A:04:14:1A:C6:90:02:81:01:00:23:0D:7F:1A:06:14:1A:D6:81:C6:90:02:00:03:7F:A0:23:0B:7F:1A:1E:14:1A:02:81:02:00:02")
+
+
+
+def shadow_map():
+	global cur
+	returnIns = ''
+	result = ''
+	#ll = extractor_refined.ladder_logic
+	fp = open("shadow_mem","r")
+	ll = fp.read()
+	
+
+	rungs,start_l = llToRungs(ll,rows,delimiters,inputs)
+	# Decompiling one rung at a item
+	for rung in rungs:
+		global line
+		global flag
+		global thisline	 
+		blk_t = 0
+		if rung != '':	
+			j = 0
+			for op in operations:
+				if op[0] in rung:
+					try:
+						st = memOperationRung(rung,op[0])
+						flag = 0
+						thisline = ''
+						rep = memwords.parse(st)
+						#print rep
+						if rung[rung.find(op[0])-8:rung.find(op[0])-4] == '0303':
+							rep = "OPER "+rep
+							which = r'....'+st+'..'
+						elif rung[rung.find(op[0])-8:rung.find(op[0])-4] == '03':
+						 	rep = "AND "+rep
+						 	which = r'..'+st+'..'
+						else:
+							which = r''+st
+						rung = re.sub(which, rep + '\n', rung)
+					except:
+						pass
+			for row in rows:				
+				if row[0] in rung and row[2] ==1:	
+					rung = rung.replace(row[0], row[1] )
+				if row[0] in rung and row[2] == 0:
+					rung = rung.replace(row[0],row[1]+"\n")
+				if row[0] in rung and row[2] == 2:
+					rung = re.sub(r''+row[0]+'..', row[1], rung)
+				if row[0] in rung and row[2] == 3:
+					rung = rung.replace(row[0], row[1])
+			ins = rung.split("\n")
+			returnIns = returnIns + "\n" + rung
+			if start_l in ins[0]:
+				ins[1] = "LD" + ins[1]
+			else:
+				ins[0] = "LD" + ins[0]
+			for inst in ins: 
+				result = result +  "%04d  | " % j + inst +"\n"
+				j = j+1
+			result = result + "---------------------------"	 + "\n"
+			
+	return result

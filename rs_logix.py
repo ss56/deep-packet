@@ -22,6 +22,7 @@ class rs_logix():
 			self.all_instructions = self.all_instructions + s + '\n'
 			for j in range(len(s)-3):
 				find = ''.join(s[j:j+4])
+				#find1 = hexcode[2:4] + hexcode[0:2]
 				if j > skip:
 					try:
 						self.all_instructions = self.all_instructions + self.instruc_Settings.get(find,'inscode')
@@ -34,11 +35,13 @@ class rs_logix():
 						
 def main():
     global extractor
-   
+   	
     extractor.extract_from_pcap(sys.argv[1])
     rs = rs_logix()
     #print extractor.wp_list
-    rs.opcode_identification(extractor.wp_list)
+    
+    rs.opcode_identification(extractor.pccc_list)
+    
     print rs.all_instructions
     #extractor.print_wp()
 

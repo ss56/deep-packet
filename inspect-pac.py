@@ -51,7 +51,7 @@ for i in range(len(cap)):
 	
 		result_d = result_d + mapper.map(cap[i]) + "\n"
 		result_o = result_o + opcode_id.findOpcodes(cap[i]) + "\n"
-			
+		#print result_o
 		if "09:be:09:ff" in cap[i]:
 			result = result + "metadata"	
 		else:
