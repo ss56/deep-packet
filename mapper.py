@@ -178,7 +178,7 @@ def map(ll):
 
 
 # To Test this function
-#print map("aaaaaaaaaaaaaaaaaaaaaaa:7C:0C:03:23:0D:7F:1A:04:14:1A:C6:90:02:81:01:00:23:0D:7F:1A:06:14:1A:D6:81:C6:90:02:00:03:7F:A0:23:0B:7F:1A:1E:14:1A:02:81:02:00:02")
+#print map("aaaaaaaaaaaaaaaaaaaaaaa:7C:0C:FD:E0:2D:02")
 
 
 
