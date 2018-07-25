@@ -8,11 +8,11 @@ import pyshark
 import sys
 import os,errno
 import numpy as np
-
 import re
 import MySQLdb
 import memwords
 from operator import itemgetter
+
 
 
 
@@ -25,13 +25,13 @@ db = MySQLdb.connect(host="localhost",  # host
                      db="modicon")   	# name of the database
 
 cur = db.cursor()
-cur.execute("select op_code,instruction,output from instructions")
+cur.execute("select op_code,instruction,output from instructions ORDER BY CHAR_LENGTH(op_code) DESC")
 rows = cur.fetchall()
 cur.execute("select op_code,delimiter,category from delimiters")
 delimiters = cur.fetchall()
 cur.execute("select operation from operations")
 operations = cur.fetchall()
-cur.execute("select op_code,instruction,output from instructions where output=\'0\'")
+cur.execute("select op_code,instruction,output from instructions where output=\'0\' ORDER BY CHAR_LENGTH(op_code) DESC")
 inputs = cur.fetchall()
 
 # Replace function for repeated occurances
@@ -69,8 +69,8 @@ def llToRungs(ll,rows,delimiters,inputs):
 		if de[2] == 0:
 			start_l = de[1]
 	end_blk = end_blk[1::2]	
-	
-	
+	inputs = list(inputs)
+	inputs.append('7f1a')
 	# Getting the addresses of Input instructions
 	for ip in inputs:
 		if ip[0] in ll:
@@ -101,20 +101,26 @@ def memOperationRung(rung,op):
 	global thisline
 	global flag
 	length = ''
-	length = rung[rung.find(op)-2:rung.find(op)]
-	if rung[rung.find(op)-6:rung.find(op)-4] == '03' or flag == 1:
-		flag = 1
-		offset = rung.find(op)+int(length,16)*2 - 4 
-		thisline = thisline + rung[rung.find(op)-4:offset]
-		if rung[offset:offset+2] == '03' or not rung.find('7f1a',offset):
-			return thisline
+	try:
+		length = rung[rung.find(op)-2:rung.find(op)]
+		if rung[rung.find(op)-6:rung.find(op)-4] == '03' or flag == 1:
+			flag = 1
+			offset = rung.find(op)+int(length,16)*2 - 4 
+			thisline = thisline + rung[rung.find(op)-4:offset]
+			
+			if rung[offset:offset+2] == '03' or not rung.find('7f1a',offset):
+				return thisline
+			else:
+				n_op =rung.find('7f1a',offset)
+				return memOperationRung(rung[n_op-6:],rung[n_op:n_op+6])
 		else:
-			n_op =rung.find('7f1a',offset)
-			return memOperationRung(rung,rung[n_op:n_op+6])
-	else:
-		offset = rung.find(op)+int(length,16)*2 -4
-		thisline = rung[rung.find(op)-4:offset]
-		return thisline
+			
+			offset = rung.find(op)+int(length,16)*2 -4
+			thisline = rung[rung.find(op)-4:offset]
+			return thisline
+	except:
+#		continue
+		pass
 
 
 def map(ll):
@@ -134,25 +140,34 @@ def map(ll):
 		blk_t = 0
 		if rung != '':	
 			j = 0
-			for op in operations:
-				if op[0] in rung:
-					try:
-						st = memOperationRung(rung,op[0])
-						flag = 0
-						thisline = ''
-						rep = memwords.parse(st)
-						#print rep
-						if rung[rung.find(op[0])-8:rung.find(op[0])-4] == '0303':
-							rep = "OPER "+rep
-							which = r'....'+st+'..'
-						elif rung[rung.find(op[0])-8:rung.find(op[0])-4] == '03':
-						 	rep = "AND "+rep
-						 	which = r'..'+st+'..'
-						else:
-							which = r''+st
-						rung = re.sub(which, rep + '\n', rung)
-					except:
-						pass
+			if_OP = 100000
+			first_op = ''
+			try:
+				for op in operations:
+					if op[0] in rung:
+						op_pos = rung.find(op[0])
+						if if_OP > op_pos:
+							if_OP = op_pos
+							first_op = op[0]
+				st = memOperationRung(rung,first_op)
+				flag = 0
+				thisline = ''
+				rep = memwords.parse(st)
+				#print rep
+				try:
+					if rung[rung.find(first_op)-8:rung.find(first_op)-4] == '0303':
+						rep = "OPER "+rep
+						which = r'....'+st+'..'
+					elif rung[rung.find(first_op)-8:rung.find(first_op)-4] == '03':
+					 	rep = "AND "+rep
+					 	which = r'..'+st+'..'
+					else:
+						which = r''+st
+					rung = re.sub(which, rep + '\n', rung)
+				except:
+					pass
+			except:
+				pass
 			for row in rows:				
 				if row[0] in rung and row[2] ==1:	
 					rung = rung.replace(row[0], row[1] )
@@ -162,7 +177,7 @@ def map(ll):
 					rung = re.sub(r''+row[0]+'..', row[1], rung)
 				if row[0] in rung and row[2] == 3:
 					rung = rung.replace(row[0], row[1])
-			ins = rung.split("\n")
+			ins = rung.replace("fc",'').replace("03",'').replace("7e5bfbe604",'').split("\n")
 			returnIns = returnIns + "\n" + rung
 			if start_l in ins[0]:
 				ins[1] = "LD" + ins[1]
@@ -177,10 +192,6 @@ def map(ll):
 	return result
 
 
-# To Test this function
-#print map("aaaaaaaaaaaaaaaaaaaaaaa:7C:0C:FD:E0:2D:02")
-
-
 
 def shadow_map():
 	global cur
@@ -193,6 +204,7 @@ def shadow_map():
 
 	rungs,start_l = llToRungs(ll,rows,delimiters,inputs)
 	# Decompiling one rung at a item
+	
 	for rung in rungs:
 		global line
 		global flag
@@ -200,25 +212,32 @@ def shadow_map():
 		blk_t = 0
 		if rung != '':	
 			j = 0
+			if_OP = 100000
+			first_op = ''
 			for op in operations:
 				if op[0] in rung:
-					try:
-						st = memOperationRung(rung,op[0])
-						flag = 0
-						thisline = ''
-						rep = memwords.parse(st)
-						#print rep
-						if rung[rung.find(op[0])-8:rung.find(op[0])-4] == '0303':
-							rep = "OPER "+rep
-							which = r'....'+st+'..'
-						elif rung[rung.find(op[0])-8:rung.find(op[0])-4] == '03':
-						 	rep = "AND "+rep
-						 	which = r'..'+st+'..'
-						else:
-							which = r''+st
-						rung = re.sub(which, rep + '\n', rung)
-					except:
-						pass
+					op_pos = rung.find(op[0])
+					if if_OP > op_pos:
+						if_OP = op_pos
+						first_op = op[0]
+			if not first_op == '':
+				st = memOperationRung(rung,first_op)
+				flag = 0
+				thisline = ''
+				rep = memwords.parse(st)
+				#print rep
+				try:
+					if rung[rung.find(first_op)-8:rung.find(first_op)-4] == '0303':
+						rep = "OPER "+rep
+						which = r'....'+st+'..'
+					elif rung[rung.find(first_op)-8:rung.find(first_op)-4] == '03':
+					 	rep = "AND "+rep
+					 	which = r'..'+st+'..'
+					else:
+						which = r''+st
+					rung = re.sub(which, rep + '\n', rung)
+				except:
+					pass
 			for row in rows:				
 				if row[0] in rung and row[2] ==1:	
 					rung = rung.replace(row[0], row[1] )

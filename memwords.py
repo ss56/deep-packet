@@ -19,7 +19,7 @@ temp = "c490"
 tempf = 'c290'
 line = []
 templ = ''
-tempvals = ['c290','c490','bc90']
+tempvals = ['c290','c490','bc90', 'c690']
 flag = 0
 
 def convert(hexcode,htype):
@@ -122,7 +122,7 @@ def parseMemFloats(s):
 							'3c' : '/' ,
 							'86' : ':='
 					 	}
-	if operation >= 51 and operation <=56:
+	if operation >= 51 and operation <=56  or operation == 134:
 		first = convert(s[18:22],'32')
 		second = convert(s[22:22+op_type[second_type]],second_type)
 		result =   first + "  " + operation_options[op] + '  ' + second
@@ -135,7 +135,6 @@ def parseMemFloats(s):
 
 def parseEqs(st):
 	length = len(st)
-
 	operation = int(st[8:10],16)
 	if operation >= 51:
 		if length < 5:
@@ -171,12 +170,12 @@ def parse(st):
 	try:
 
 		global line
-		#print st
 		parseEqs(st.strip())
 		utilized = {}
 		initialized = {}
 		assigned = {}
 		final = ''
+
 		if len(line) > 1:
 			for li in line:
 				for temp in tempvals:
@@ -211,7 +210,6 @@ def parse(st):
 				line = []
 			except KeyError as e:
 				pass
-				#print str(e) + st + "im here again"
 		else:
 			final = '[ ' + line[0] + ' ]'	
 			line = []
